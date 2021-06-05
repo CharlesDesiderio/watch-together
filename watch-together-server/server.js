@@ -7,8 +7,14 @@ const cors = require('cors')
 app.use(cors())
 
 io.on('connection', (socket) => {
-  socket.on('message', ({userName, message}) => {
-    io.emit('message', {userName, message})
+
+  socket.on('joinRoom', (roomName) => {
+    socket.join(roomName)
+    console.log(socket)
+  })
+
+  socket.on('message', ({userName, message, room}) => {
+    io.to(room).emit('message', {userName, message})
   })
 
   socket.on('changeVideo', (video) => {
