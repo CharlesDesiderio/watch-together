@@ -8,25 +8,31 @@ app.use(cors())
 
 io.on('connection', (socket) => {
 
-  socket.on('joinRoom', (roomName) => {
+  socket.on('joinRoom', (roomName, userName) => {
     socket.join(roomName)
-    console.log(socket)
+    io.to(roomName).emit('newUserJoin', userName)
+  })
+
+  // socket.emit('updateInfo', props.data.roomName, currentVideo, playState, playTime)
+  socket.on('updateInfo', (room, currentVideo, playState, playTime, userName) => {
+    io.to(room).emit('checkInfo', currentVideo, playState, playTime, userName)
   })
 
   socket.on('message', ({userName, message, room}) => {
     io.to(room).emit('message', {userName, message})
   })
 
-  socket.on('changeVideo', (video) => {
-    io.emit('newVideo', video)
+  socket.on('changeVideo', (video, room) => {
+    console.log(video)
+    io.to(room).emit('newVideo', video)
   })
 
-  socket.on('pauseVideo', () => {
-    io.emit('requestPause')
+  socket.on('pauseVideo', (room) => {
+    io.to(room).emit('requestPause')
   })
 
-  socket.on('playVideo', () => {
-    io.emit('requestPlay')
+  socket.on('playVideo', (room) => {
+    io.to(room).emit('requestPlay')
   })
 
 })

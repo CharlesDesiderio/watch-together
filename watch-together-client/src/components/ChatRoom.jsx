@@ -1,5 +1,4 @@
-import { useState, useEffect, useContext } from 'react'
-import { Socket } from 'socket.io'
+import { useState, useEffect, useContext, useRef } from 'react'
 import AppData from '../AppContext'
 
 import YouTube from 'react-youtube';
@@ -11,15 +10,17 @@ const socket = io('http://localhost:3000', {transports: ['websocket']});
 
 const ChatRoom = (props) => {
 
+  
+
   const [chat, setChat] = useState([])
   const [input, setInput] = useState({
-    message: ''
+    message: '',
+    videoInput: ''
   })
 
-  // const handleMessageSend = (event) => {
-  //   event.preventDefault()
-  //   socket.emit('message', { userName, message })
-  // }
+  const [currentVideo, setCurrentVideo] = useState('TCRwQikQbxs')
+
+  const videoRef = useRef()
 
   const handleChange = (event) => setInput({...input,
     [event.currentTarget.name]: event.currentTarget.value
@@ -31,53 +32,115 @@ const ChatRoom = (props) => {
     const message = input['message']
     const room = props.data.roomName
     socket.emit('message', { userName, room, message })
+
+    setInput({
+      ...input, ['message']: ''
+    })
   }
 
+  const handleVideoChange = (event) => {
+    event.preventDefault()
+    const room = props.data.roomName
+    socket.emit('changeVideo', input['videoInput'], room )
+  }
+
+  const handlePlay = () => {
+    socket.emit('playVideo', props.data.roomName)
+  }
+
+  const handlePause = () => {
+    console.log('paused')
+    socket.emit('pauseVideo', props.data.roomName)
+  }
+
+    const opts = {
+    height: '390',
+    width: '640',
+    playerVars: {
+      autoplay: 0,
+    },
+  };
+
   useEffect(() => {
-    
-    socket.emit('joinRoom', props.data.roomName)
+
+    socket.emit('joinRoom', props.data.roomName, props.data.userName)
 
     socket.on('message', (incomingMessage) => {
       setChat([...chat, incomingMessage])
     })
-  })
 
-  //   useEffect(() => {
+    socket.on('newUserJoin', (userName) => {
+      console.log(userName, 'joined')
+      // let videoState
+      // Promise.resolve(videoRef.current.internalPlayer.getPlayerState())
+      //   .then((v) => {
+      //     // 1 for playing, 2 for paused
+      //     videoState = v
+      //   })
+      // const videoTime = Promise.resolve(videoRef.current.internalPlayer.getCurrentTime()).then((v) => console.log('time', v))       
 
-//     socket.on('message', (incomingMessage) => {
-//       setChat([...chat, incomingMessage])
-//     })
+      let playerState = Promise.resolve(videoRef.current.internalPlayer.getPlayerState())
+      let videoTime = Promise.resolve(videoRef.current.internalPlayer.getCurrentTime())
 
-//     socket.on('newVideo', (incomingVideoId) => {
-//       setCurrentVideo(incomingVideoId)
-//     })
+      playerState.then((playState) => {
+        videoTime.then((playTime) => {
+          console.log(playState, playTime)
+          socket.emit('updateInfo', props.data.roomName, currentVideo, playState, playTime, userName)
+        })
+      })
+    })
 
-//     socket.on('requestPause', () => {
-//       console.log('Pause requested')
-//       videoRef.current.internalPlayer.pauseVideo()
-//     })
+    socket.on('newVideo', (incomingVideoId) => {
+      setCurrentVideo(incomingVideoId)
+    })
 
-//     socket.on('requestPlay', () => {
-//       console.log('Play requested')
-//       videoRef.current.internalPlayer.playVideo()
-//     })
+    socket.on('requestPause', () => {
+      console.log('Pause requested')
+      videoRef.current.internalPlayer.pauseVideo()
+    })
 
-//   })
+    socket.on('requestPlay', () => {
+      console.log('Play requested')
+      videoRef.current.internalPlayer.playVideo()
+    })
 
+    socket.on('checkInfo', (vidId, playState, playTime, userName) => {
+      console.log('checking ... ', vidId, playState, playTime)
+      if (userName === props.data.userName) {
+        if (currentVideo !== vidId) {
+          setCurrentVideo(vidId)
+        }
+        if (playState === 1 || playState === 2) {
+          videoRef.current.internalPlayer.seekTo(parseInt(playTime + 2), true)
+        }
+        // if (playState === 1) {
+        //   videoRef.current.internalPlayer.playVideo()
+        // } else {
+        //   videoRef.current.internalPlayer.pauseVideo()
+        // }
+      }
+    })
+
+  }, [])
 
   const ContextData = useContext(AppData)
 
   return (
     <div>
-      {/* youtube component */}
-      {/* message component */}
+      <YouTube ref={videoRef} videoId={currentVideo} opts={opts} onPlay={handlePlay} onPause={handlePause} onReady={_onReady} />
       { chat.map((item) => {
         return <ChatHistory name={item.userName} message={item.message} />
       }) }
       Hey {ContextData.userName}
       <input type="text" onChange={handleChange} value={input['message']} name="message" /><button onClick={handleMessageSend}>Send</button>
+      <input type="text" onChange={handleChange} value={input['videoInput']} name="videoInput" /><button onClick={handleVideoChange}>New Video</button>
     </div>
   )
+}
+
+const _onReady = (event) => {
+  // access to player in all event handlers via event.target
+  event.target.playVideo();
 }
 
 export default ChatRoom;
