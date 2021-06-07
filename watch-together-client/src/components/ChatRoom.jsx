@@ -10,15 +10,13 @@ const socket = io('http://localhost:3000', {transports: ['websocket']});
 
 const ChatRoom = (props) => {
 
-  
-
   const [chat, setChat] = useState([])
   const [input, setInput] = useState({
     message: '',
     videoInput: ''
   })
 
-  const [currentVideo, setCurrentVideo] = useState('TCRwQikQbxs')
+  const [currentVideo, setCurrentVideo] = useState('') // TCRwQikQbxs
 
   const videoRef = useRef()
 
@@ -40,6 +38,11 @@ const ChatRoom = (props) => {
 
   const handleVideoChange = (event) => {
     event.preventDefault()
+
+    console.log(input['videoInput'], currentVideo)
+    setCurrentVideo(input['videoInput'])
+    console.log(currentVideo)
+
     const room = props.data.roomName
     socket.emit('changeVideo', input['videoInput'], room )
   }
@@ -57,60 +60,70 @@ const ChatRoom = (props) => {
     height: '390',
     width: '640',
     playerVars: {
-      autoplay: 0,
+      autoplay: 1,
     },
   };
 
-  useEffect(() => {
 
+
+  const _onReady = (event) => {
+    // access to player in all event handlers via event.target
+    event.target.playVideo();
+  }
+
+  useEffect(() => {
+    
     socket.emit('joinRoom', props.data.roomName, props.data.userName)
 
     socket.on('message', (incomingMessage) => {
       setChat([...chat, incomingMessage])
     })
-
+  
     socket.on('newUserJoin', (userName) => {
-      console.log(userName, 'joined')
-      // let videoState
-      // Promise.resolve(videoRef.current.internalPlayer.getPlayerState())
-      //   .then((v) => {
-      //     // 1 for playing, 2 for paused
-      //     videoState = v
-      //   })
-      // const videoTime = Promise.resolve(videoRef.current.internalPlayer.getCurrentTime()).then((v) => console.log('time', v))       
-
-      let playerState = Promise.resolve(videoRef.current.internalPlayer.getPlayerState())
-      let videoTime = Promise.resolve(videoRef.current.internalPlayer.getCurrentTime())
-
-      playerState.then((playState) => {
-        videoTime.then((playTime) => {
-          console.log(playState, playTime)
-          socket.emit('updateInfo', props.data.roomName, currentVideo, playState, playTime, userName)
+      if (userName !== props.data.userName) {
+  
+        console.log(userName, 'joined')
+  
+        // let videoState
+        // Promise.resolve(videoRef.current.internalPlayer.getPlayerState())
+        //   .then((v) => {
+        //     // 1 for playing, 2 for paused
+        //     videoState = v
+        //   })
+        // const videoTime = Promise.resolve(videoRef.current.internalPlayer.getCurrentTime()).then((v) => console.log('time', v))       
+  
+        let playerState = Promise.resolve(videoRef.current.internalPlayer.getPlayerState())
+        let videoTime = Promise.resolve(videoRef.current.internalPlayer.getCurrentTime())
+  
+        playerState.then((playState) => {
+          videoTime.then((playTime) => {
+            console.log(playState, playTime)
+            console.log('telling', userName, currentVideo, 'is playing')
+            socket.emit('updateInfo', props.data.roomName, currentVideo, playState, playTime, userName)
+          })
         })
-      })
+      }
     })
-
+  
     socket.on('newVideo', (incomingVideoId) => {
       setCurrentVideo(incomingVideoId)
     })
-
+  
     socket.on('requestPause', () => {
       console.log('Pause requested')
       videoRef.current.internalPlayer.pauseVideo()
     })
-
+  
     socket.on('requestPlay', () => {
       console.log('Play requested')
       videoRef.current.internalPlayer.playVideo()
     })
-
+  
     socket.on('checkInfo', (vidId, playState, playTime, userName) => {
-      console.log('checking ... ', vidId, playState, playTime)
       if (userName === props.data.userName) {
-        if (currentVideo !== vidId) {
-          setCurrentVideo(vidId)
-        }
         if (playState === 1 || playState === 2) {
+          console.log('checking ... ', vidId, playState, playTime, userName)
+          setCurrentVideo(vidId)
           videoRef.current.internalPlayer.seekTo(parseInt(playTime + 2), true)
         }
         // if (playState === 1) {
@@ -122,6 +135,9 @@ const ChatRoom = (props) => {
     })
 
   }, [])
+
+
+  
 
   const ContextData = useContext(AppData)
 
@@ -138,10 +154,6 @@ const ChatRoom = (props) => {
   )
 }
 
-const _onReady = (event) => {
-  // access to player in all event handlers via event.target
-  event.target.playVideo();
-}
 
 export default ChatRoom;
 
