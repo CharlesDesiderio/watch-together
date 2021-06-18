@@ -1,12 +1,15 @@
-import { useState, useEffect, useContext, useRef } from 'react'
+import { useReducer, useState, useEffect, useContext, useRef } from 'react'
 import AppData from '../AppContext'
+import ChatHistory from './ChatHistory';
 
 import YouTube from 'react-youtube';
 import io from 'socket.io-client'
-import ChatHistory from './ChatHistory';
 
 const socket = io('http://localhost:3000', {transports: ['websocket']});
 
+const reducer = (state, action) => {
+  return action.value;
+}
 
 const ChatRoom = (props) => {
 
@@ -15,8 +18,8 @@ const ChatRoom = (props) => {
     message: '',
     videoInput: ''
   })
-
-  const [currentVideo, setCurrentVideo] = useState('') // TCRwQikQbxs
+  // const [currentVideo, setCurrentVideo] = useState('') // TCRwQikQbxs
+  const [currentVideo, setCurrentVideo] = useReducer(reducer, '')
 
   const videoRef = useRef()
 
@@ -39,9 +42,9 @@ const ChatRoom = (props) => {
   const handleVideoChange = (event) => {
     event.preventDefault()
 
-    console.log(input['videoInput'], currentVideo)
-    setCurrentVideo(input['videoInput'])
-    console.log(currentVideo)
+    // console.log(input['videoInput'], currentVideo)
+    setCurrentVideo({value: input['videoInput']})
+    console.log('47', currentVideo)
 
     const room = props.data.roomName
     socket.emit('changeVideo', input['videoInput'], room )
@@ -52,7 +55,6 @@ const ChatRoom = (props) => {
   }
 
   const handlePause = () => {
-    console.log('paused')
     socket.emit('pauseVideo', props.data.roomName)
   }
 
@@ -63,8 +65,6 @@ const ChatRoom = (props) => {
       autoplay: 1,
     },
   };
-
-
 
   const _onReady = (event) => {
     // access to player in all event handlers via event.target
@@ -94,11 +94,12 @@ const ChatRoom = (props) => {
   
         let playerState = Promise.resolve(videoRef.current.internalPlayer.getPlayerState())
         let videoTime = Promise.resolve(videoRef.current.internalPlayer.getCurrentTime())
-  
+        let curVid = currentVideo
+
         playerState.then((playState) => {
           videoTime.then((playTime) => {
             console.log(playState, playTime)
-            console.log('telling', userName, currentVideo, 'is playing')
+            console.log('telling', userName, 'that', curVid, 'is playing')
             socket.emit('updateInfo', props.data.roomName, currentVideo, playState, playTime, userName)
           })
         })
